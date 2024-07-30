@@ -23,8 +23,21 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
 
+    - name: Ensure AWS CLI is installed
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y awscli
+
+    - name: Verify ECR registry URI and AWS region
+      run: |
+        echo "AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}"
+        echo "AWS_REGION: ${{ secrets.AWS_REGION }}"
+
     - name: Login to AWS ECR
-      run: aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REGISTRY }}
+      run: |
+        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REGISTRY }}
+      env:
+        AWS_REGION: ${{ secrets.AWS_REGION }}
 
     - name: Build Docker image
       id: build
@@ -32,7 +45,7 @@ jobs:
       with:
         context: .
         push: false
-        tags: ${{ secrets.AWS_ECR_REGISTRY }}/mydemo:latest
+        tags: ${{ secrets.AWS_ECR_REGISTRY }}/my-repo:latest
 
     - name: Install Trivy
       run: |
@@ -43,8 +56,11 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y trivy
 
+    - name: List Docker images
+      run: docker images
+
     - name: Scan Docker image with Trivy
-      run: trivy image --format template --template "@contrib/html.tpl" --output trivy-report.html ${{ secrets.AWS_ECR_REGISTRY }}
+      run: trivy image --format template --template "@contrib/html.tpl" --output trivy-report.html ${{ secrets.AWS_ECR_REGISTRY }}/my-repo:latest
 
     - name: Upload Trivy report as artifact
       uses: actions/upload-artifact@v3
@@ -54,4 +70,4 @@ jobs:
 
     - name: Push Docker image to AWS ECR
       if: success()
-      run: docker push ${{ secrets.AWS_ECR_REGISTRY }}/mydemo:latest
+      run: docker push ${{ secrets.AWS_ECR_REGISTRY }}/my-repo:latest
