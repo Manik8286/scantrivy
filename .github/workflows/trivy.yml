@@ -47,4 +47,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: trivy-results
-        path: trivy-results.sarif
+        path: trivy-results.html
