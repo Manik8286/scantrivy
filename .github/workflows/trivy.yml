@@ -32,3 +32,19 @@ jobs:
       run: |
           docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@0.20.0
+      with:
+        image-ref: '$REGISTRY/$REPOSITORY:$IMAGE_TAG'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+      env:
+          AWS_ACCESS_KEY_ID: key_id
+          AWS_SECRET_ACCESS_KEY: access_key
+          AWS_DEFAULT_REGION: us-west-2
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
