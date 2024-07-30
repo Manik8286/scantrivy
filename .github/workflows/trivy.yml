@@ -32,7 +32,7 @@ jobs:
       with:
         context: .
         push: false
-        tags: mydemo:latest
+        tags: ${{ secrets.AWS_ECR_REGISTRY }}/mydemo:latest
 
     - name: Install Trivy
       run: |
@@ -54,4 +54,4 @@ jobs:
 
     - name: Push Docker image to AWS ECR
       if: success()
-      run: docker push mydemo:latest
+      run: docker push ${{ secrets.AWS_ECR_REGISTRY }}/mydemo:latest
