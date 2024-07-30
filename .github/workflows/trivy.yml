@@ -22,52 +22,16 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Ensure AWS CLI is installed
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y awscli
-
-    - name: Verify ECR registry URI and AWS region
-      run: |
-        echo "AWS_ECR_REGISTRY: ${{ secrets.AWS_ECR_REGISTRY }}"
-        echo "AWS_REGION: ${{ secrets.AWS_REGION }}"
-
-    - name: Login to AWS ECR
-      run: |
-        aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REGISTRY }}
+    - name: Build, tag, and push docker image to Amazon ECR
       env:
-        AWS_REGION: ${{ secrets.AWS_REGION }}
-
-    - name: Build Docker image
-      id: build
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: false
-        tags: ${{ secrets.AWS_ECR_REGISTRY }}/my-repo:latest
-
-    - name: Install Trivy
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: my-ecr-repo
+          IMAGE_TAG: ${{ github.sha }}
       run: |
-        sudo apt-get update
-        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-        sudo apt-get update
-        sudo apt-get install -y trivy
-
-    - name: List Docker images
-      run: docker images
-
-    - name: Scan Docker image with Trivy
-      run: trivy image --format template --template "@contrib/html.tpl" --output trivy-report.html ${{ secrets.AWS_ECR_REGISTRY }}/my-repo:latest
-
-    - name: Upload Trivy report as artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: trivy-report
-        path: trivy-report.html
-
-    - name: Push Docker image to AWS ECR
-      if: success()
-      run: docker push ${{ secrets.AWS_ECR_REGISTRY }}/my-repo:latest
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
